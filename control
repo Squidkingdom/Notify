@@ -1,0 +1,9 @@
+Package: com.squidkingdom.notify
+Name: Notify
+Depends: mobilesubstrate
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: An awesome MobileSubstrate tweak!
+Maintainer: Squiddy
+Author: Squiddy
+Section: Tweaks
