@@ -86,7 +86,5 @@ static void fakeNotification(NSString *sectionID, NSDate *date, NSString *messag
 %end
 
 %ctor{
-  CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)NTFTestNotifications, (CFStringRef)@"me.nepeta.notifica/TestNotifications", NULL, kNilOptions);
-  CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)NTFTestBanner, (CFStringRef)@"me.nepeta.notifica/TestBanner", NULL, kNilOptions);
-
+  
 }
