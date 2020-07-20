@@ -1,90 +1,60 @@
-#include "Tweak.h"
-#import <dlfcn.h>
-static BBServer *bbServer = nil;
-static dispatch_queue_t getBBServerQueue()
-{
+#import "Tweak.h"
+
+BOOL added = NO;
+BBServer *notificationserver;
+
+%hook BBServer
+-(id)initWithQueue:(id)arg1 {
+    notificationserver = %orig;
+    return notificationserver;
+}
+-(id)initWithQueue:(id)arg1 dataProviderManager:(id)arg2 syncService:(id)arg3 dismissalSyncCache:(id)arg4 observerListener:(id)arg5 utilitiesListener:(id)arg6 conduitListener:(id)arg7 systemStateListener:(id)arg8 settingsListener:(id)arg9 {
+    notificationserver = %orig;
+    return notificationserver;
+}
+- (void)dealloc {
+  if (notificationserver == self) {
+    notificationserver = nil;
+  }
+  %orig;
+}
+%end
+
+static dispatch_queue_t getBBServerQueue() {
     static dispatch_queue_t queue;
     static dispatch_once_t predicate;
-    dispatch_once(&predicate,
-    ^{
+    dispatch_once(&predicate, ^{
         void *handle = dlopen(NULL, RTLD_GLOBAL);
-        if(handle)
-        {
+        if (handle) {
             dispatch_queue_t __weak *pointer = (__weak dispatch_queue_t *) dlsym(handle, "__BBServerQueue");
-            if(pointer) queue = *pointer;
+            if (pointer) {
+                queue = *pointer;
+            }
             dlclose(handle);
         }
     });
     return queue;
 }
 
-static void fakeNotification(NSString *sectionID, NSDate *date, NSString *message, bool banner) {
-    BBBulletin *bulletin = [[%c(BBBulletin) alloc] init];
+static void sendNoti() {
+	BBBulletin *bulletin = [[[objc_getClass("BBBulletin") class] alloc] init];
+	bulletin.title = @"Title";
+	bulletin.message = @"Content";
+	bulletin.sectionID = @"com.apple.Preferences";
+	bulletin.bulletinID = [[NSProcessInfo processInfo] globallyUniqueString];
+	bulletin.recordID = [[NSProcessInfo processInfo] globallyUniqueString];
+	bulletin.publisherBulletinID = [[NSProcessInfo processInfo] globallyUniqueString];
 
-    bulletin.title = @"Notifica";
-    bulletin.message = message;
-    bulletin.sectionID = sectionID;
-    // bulletin.bulletinID = [[NSProcessInfo processInfo] globallyUniqueString];
-    // bulletin.recordID = [[NSProcessInfo processInfo] globallyUniqueString];
-    // bulletin.publisherBulletinID = [[NSProcessInfo processInfo] globallyUniqueString];
-    bulletin.date = date;
-    bulletin.defaultAction = [%c(BBAction) actionWithLaunchBundleID:sectionID callblock:nil];
+	bulletin.date = [NSDate date];
 
-    if (banner) {
-        SBLockScreenNotificationListController *listController=([[%c(UIApplication) sharedApplication] respondsToSelector:@selector(notificationDispatcher)] && [[[%c(UIApplication) sharedApplication] notificationDispatcher] respondsToSelector:@selector(notificationSource)]) ? [[[%c(UIApplication) sharedApplication] notificationDispatcher] notificationSource]  : [[[%c(SBLockScreenManager) sharedInstanceIfExists] lockScreenViewController] valueForKey:@"notificationController"];
-        [listController observer:[listController valueForKey:@"observer"] addBulletin:bulletin forFeed:14];
-    } else {
-        if ([bbServer respondsToSelector:@selector(publishBulletin:destinations:alwaysToLockScreen:)]) {
-            dispatch_sync(getBBServerQueue(), ^{
-                [bbServer publishBulletin:bulletin destinations:4 alwaysToLockScreen:YES];
-            });
-        } else if ([bbServer respondsToSelector:@selector(publishBulletin:destinations:)]) {
-            dispatch_sync(getBBServerQueue(), ^{
-                [bbServer publishBulletin:bulletin destinations:4];
-            });
-        }
-    }
+	bulletin.defaultAction = [[objc_getClass("BBAction") class] actionWithLaunchBundleID:nil callblock:nil];
+	dispatch_sync(getBBServerQueue(), ^{
+		[notificationserver publishBulletin:bulletin destinations:14];
+	});
 }
-
-
 %hook SpringBoard
 -(void)_ringerChanged:(struct __IOHIDEvent *)arg1 {
-
-        fakeNotification(@"com.apple.MobileSMS", [NSDate date], @"Test banner!", true);
-        fakeNotification(@"com.apple.MobileSMS", [NSDate date], @"Test notification 9!", false);
-        fakeNotification(@"com.apple.mobilephone", [NSDate date], @"Test notification 15!", false);
-	%orig;
+      sendNoti();
+	    %orig;
 }
 %end
-
-%hook BBServer
-- (id)init {
-  id me = %orig;
-  bbServer = me;
-  return me;
-}
-
--(id)initWithQueue:(id)arg1 {
-  id me = %orig;
-  bbServer = me;
-  return me;
-}
-
--(id)initWithQueue:(id)arg1 dataProviderManager:(id)arg2 syncService:(id)arg3 dismissalSyncCache:(id)arg4 observerListener:(id)arg5 utilitiesListener:(id)arg6 conduitListener:(id)arg7 systemStateListener:(id)arg8 settingsListener:(id)arg9 {
-  id me = %orig;
-  bbServer = me;
-  return me;
-}
-
-- (void)dealloc {
-  if (bbServer == self) {
-    bbServer = nil;
-  }
-
-  %orig;
-}
-%end
-
-%ctor{
-  
-}
